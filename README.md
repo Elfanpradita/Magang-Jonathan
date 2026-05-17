@@ -131,10 +131,9 @@ Berikut adalah beberapa perintah Artisan yang mungkin Anda butuhkan selama penge
 ### **Manajemen Database**
 
 -   **Reset dan jalankan ulang semua migrasi database:**
-    ```bash
-    php artisan migrate:fresh
     ```
--   **Jalankan semua seeder untuk mengisi data awal:**
-    ```bash
-    php artisan db:seed --force
+        docker compose up -d --build
+        docker exec -it pemweb bash
+        composer install
+        php artisan migrate:fresh --seed
     ```

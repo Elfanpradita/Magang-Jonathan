@@ -10,6 +10,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 use OpenSpout\Reader\XLSX\Reader;
+use Spatie\Permission\Models\Role; // Import Model Role Spatie
 
 class DatabaseSeeder extends Seeder
 {
@@ -18,11 +19,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 🚀 PENGAMAN: Pastikan Role Super Admin bawaan Shield sudah terbuat di database
+        $superAdminRole = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'panel_user', 'guard_name' => 'web']);
+
         // 1. BUAT AKUN USER LOGIN
         $admin = User::updateOrCreate(
             ['email' => 'jonathanch@gmail.com'],
             ['name' => 'John Cafe', 'password' => Hash::make('p455w0rd')]
         );
+        
+        // 🚀 Otomatis pasangkan Role Super Admin ke akun John Cafe
+        $admin->assignRole($superAdminRole);
 
         $staff = User::updateOrCreate(
             ['email' => 'staff@dwi.com'],

@@ -4,43 +4,49 @@ namespace App\Filament\Admin\Widgets;
 
 use App\Models\Category;
 use App\Models\Transaction;
-use Filament\Support\Enums\IconPosition;
+use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
+// 🚀 NAMA KELAS DISESUAIKAN 100% DENGAN FILE DI SERVER ANDA Pak!
 class WarehouseStatsOverview extends BaseWidget
 {
-    protected static ?string $pollingInterval = '10s'; // Auto-refresh data tiap 10 detik
-
-    protected static ?int $sort = 1;
-
     protected function getStats(): array
     {
-        // Ambil data agregasi real-time dari database
+        // 1. Hitung Total Pengguna Sistem
+        $totalUsers = User::count();
+
+        // 2. Hitung Total Kategori Master Aktif
         $totalCategories = Category::where('is_active', true)->count();
-        $totalTransactions = Transaction::count();
-        
-        // Ambil jumlah transaksi yang statusnya masih pending (perlu approval)
-        $pendingApproval = Transaction::where('status', 'pending')->count();
+
+        // 3. Hitung SUM(subtotal) dari 4.105 data Excel tahun 2026
+        $totalDanaGudang = Transaction::whereYear('date', 2026)->sum('subtotal');
+
+        // 4. Hitung baris berstatus URGENT sesuai kolom baru klien
+        $stokKritisCount = Transaction::where('status', 'URGENT/HARUS SEGERA ORDER')->count();
 
         return [
-            Stat::make('Total Kategori Aktif', $totalCategories)
-                ->description('Kategori master dalam sistem')
-                ->descriptionIcon('heroicon-m-tag', IconPosition::Before)
-                ->chart([3, 5, 4, 7, 6, 9, $totalCategories > 0 ? $totalCategories : 5])
+            Stat::make('Users', $totalUsers)
+                ->description('Pengguna sistem aktif')
+                ->descriptionIcon('heroicon-m-users')
                 ->color('info'),
 
-            Stat::make('Total Transaksi', $totalTransactions)
-                ->description('Akumulasi aliran dana gudang')
-                ->descriptionIcon('heroicon-m-arrow-trending-up', IconPosition::Before)
-                ->chart([10, 22, 18, 25, 30, 42, $totalTransactions > 0 ? $totalTransactions : 15])
+            Stat::make('Total Kategori Aktif', $totalCategories)
+                ->description('Kategori master dalam sistem')
+                ->descriptionIcon('heroicon-m-squares-2x2')
                 ->color('success'),
 
-            Stat::make('Pending Approval / Stok Kritis', $pendingApproval)
-                ->description($pendingApproval > 0 ? 'Perlu tindakan verifikasi!' : 'Semua aman terkendali')
-                ->descriptionIcon('heroicon-m-exclamation-triangle', IconPosition::Before)
-                ->chart([1, 4, 2, 5, 3, 6, $pendingApproval])
-                ->color($pendingApproval > 0 ? 'danger' : 'gray'),
+            Stat::make('Total Anggaran Gudang', 'Rp ' . number_format($totalDanaGudang, 0, ',', '.'))
+                ->description('Akumulasi nilai subtotal aset gudang (2026)')
+                ->descriptionIcon('heroicon-m-banknotes')
+                ->chart([7, 4, 10, 3, 15, 4, 17])
+                ->color('primary'),
+
+            Stat::make('Stok Kritis (Urgent)', $stokKritisCount . ' Item')
+                ->description('Butuh tindakan order segera')
+                ->descriptionIcon('heroicon-m-exclamation-triangle')
+                ->chart($stokKritisCount > 0 ? [5, 10, 15, 20, 25] : [0, 0, 0])
+                ->color($stokKritisCount > 0 ? 'danger' : 'success'),
         ];
     }
 }

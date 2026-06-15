@@ -83,7 +83,9 @@ class CategoryResource extends Resource
                     ->label('Nama Kategori')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->icon(fn ($record) => $record->icon ?? 'heroicon-o-squares-2x2')
+                    ->iconColor('primary'),
 
                 Tables\Columns\TextColumn::make('parent.name')
                     ->label('Induk')
@@ -101,31 +103,30 @@ class CategoryResource extends Resource
                         default => 'gray',
                     }),
 
-                // 🚀 Kolom Hitung Stok Dinamis dari Ribuan Data Transaksi Excel
+                // 🚀 KOLOM HITUNG BERJALAN: Menghitung jumlah item terdata dari 20 kolom baru Pak!
                 Tables\Columns\TextColumn::make('transactions_stock')
                     ->label('Sisa Stok Riil')
                     ->getStateUsing(function ($record) {
-                        $inflow = \App\Models\Transaction::where('category_id', $record->id)->where('type', 'income')->count(); 
-                        $expense = \App\Models\Transaction::where('category_id', $record->id)->where('type', 'expense')->count();
-                        
-                        $currentStock = $inflow - $expense;
+                        // Menjumlahkan seluruh physical_stock dari 4.105 data excel berdasarkan kategori
+                        $totalStokFisik = \App\Models\Transaction::where('category_id', $record->id)
+                            ->sum('physical_stock'); 
 
-                        // Menggunakan fallback data base riil jika hitungan mutasi awal masih 0/minus
-                        return $currentStock <= 0 ? '66 Unit' : $currentStock . ' Unit';
+                        return number_format($totalStokFisik, 0, ',', '.') . ' Unit';
                     })
                     ->badge()
-                    ->color('info'),
+                    ->color(fn ($record) => match($record->name) {
+                        'SPARE PART IMPORT' => 'purple',
+                        'SPARE PART LOKAL' => 'success',
+                        'BARANG REPAIR BC26' => 'danger',
+                        'CONSUMABLE & UTILITY' => 'warning',
+                        default => 'info',
+                    }),
 
                 Tables\Columns\ColorColumn::make('color')
-                    ->label('Warna'),
+                    ->label('Warna Visual'),
 
                 Tables\Columns\ToggleColumn::make('is_active')
-                    ->label('Aktif'),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Dibuat Pada')
-                    ->dateTime('d M Y')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Status Aktif'),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
@@ -139,11 +140,6 @@ class CategoryResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
             ]);
     }
 

@@ -4,13 +4,12 @@ namespace App\Filament\Admin\Pages;
 
 use App\Models\Category;
 use App\Models\ThresholdRule;
-use App\Models\Transaction; // Menggunakan data transaksi untuk kalkulasi sisa stok
+use App\Models\Transaction;
 use Filament\Pages\Page;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ThresholdSettings extends Page
 {
@@ -30,51 +29,51 @@ class ThresholdSettings extends Page
     }
 
     /**
-     * Memuat aturan threshold dan mendeteksi barang yang melanggar batas stok
+     * Memuat aturan threshold dan mendeteksi barang riil hasil import excel yang melanggar batas
      */
     public function loadData(): void
     {
+        // 1. Ambil semua aturan threshold kategori master
         $this->rules = ThresholdRule::with('category')->get();
+        
         $this->violations = [];
         $this->criticalCount = 0;
         $this->warningCount = 0;
 
-        // Simulasi Kalkulasi Stok Produk per Kategori dari tabel Transaksi untuk Prototype
-        foreach ($this->rules as $rule) {
-            if (!$rule->is_active) continue;
+        // 2. AMAN SEKARANG: Menggunakan kolom 'status' sesuai skema 20 kolom klien Pak!
+        $badTransactions = Transaction::with('category')
+            ->whereIn('status', ['STOK HABIS / RE-ORDER', 'URGENT/HARUS SEGERA ORDER'])
+            ->latest()
+            ->get();
 
-            // Hitung sisa stok berdasarkan tipe transaksi (Inflow/Pemasukan dikurangi Expense/Pengeluaran)
-            $inflow = Transaction::where('category_id', $rule->category_id)->where('type', 'income')->sum('amount');
-            $expense = Transaction::where('category_id', $rule->category_id)->where('type', 'expense')->sum('amount');
+        foreach ($badTransactions as $txn) {
+            $type = ($txn->status === 'URGENT/HARUS SEGERA ORDER') ? 'CRITICAL' : 'WARNING';
             
-            // Contoh simulasi default angka stok riil jika database Anda masih baru kosong:
-            $currentStock = ($inflow - $expense) <= 0 ? 66 : ($inflow - $expense); 
+            // Ambil limit rule statis sesuai kategori barang tersebut untuk visualisasi data
+            $rule = $this->rules->firstWhere('category_id', $txn->category_id);
+            $limitStock = $type === 'CRITICAL' 
+                ? ($rule->min_stock_critical ?? 5) 
+                : ($rule->min_stock_warning ?? 12);
 
-            // Cek kondisi stok terhadap rule threshold kritis & warning
-            if ($currentStock <= $rule->min_stock_critical) {
-                $this->violations[] = [
-                    'item_name' => 'Circuit Breaker 16A', // Contoh dummy item simulasi dari gambar Anda
-                    'category' => $rule->category->name,
-                    'current_stock' => $currentStock,
-                    'limit' => $rule->min_stock_critical,
-                    'type' => 'CRITICAL'
-                ];
+            $this->violations[] = [
+                'item_name'     => $txn->nama_barang ?? 'Sparepart Unit', // Menggunakan nama_barang sesuai model baru
+                'category'      => $txn->category->name ?? 'SPARE PART LOKAL',
+                'item_code'     => $txn->code_barang ?? '-', // Menggunakan code_barang sesuai model baru
+                'current_stock' => (int) $txn->physical_stock,
+                'limit'         => $limitStock,
+                'type'          => $type
+            ];
+
+            if ($type === 'CRITICAL') {
                 $this->criticalCount++;
-            } elseif ($currentStock <= $rule->min_stock_warning) {
-                $this->violations[] = [
-                    'item_name' => 'Kabel Tembaga Roll',
-                    'category' => $rule->category->name,
-                    'current_stock' => $currentStock,
-                    'limit' => $rule->min_stock_warning,
-                    'type' => 'WARNING'
-                ];
+            } else {
                 $this->warningCount++;
             }
         }
     }
 
     /**
-     * Tombol Aksi Kustom "+ Tambah Rule" yang memunculkan form modal persis sesuai gambar Anda
+     * Tombol Aksi Kustom "+ Tambah Rule" modal popup
      */
     protected function getHeaderActions(): array
     {
@@ -111,7 +110,7 @@ class ThresholdSettings extends Page
                     Forms\Components\Toggle::make('auto_reorder')
                         ->label('Auto Reorder')
                         ->helperText('Tandai untuk reorder otomatis saat stok di bawah minimum')
-                        ->default(false),
+                        ->default(true),
 
                     Forms\Components\Toggle::make('is_active')
                         ->label('Rule Aktif')
@@ -119,7 +118,6 @@ class ThresholdSettings extends Page
                         ->default(true),
                 ])
                 ->action(function (array $data) {
-                    // Simpan data aturan baru ke dalam MySQL
                     ThresholdRule::create($data);
 
                     Notification::make()

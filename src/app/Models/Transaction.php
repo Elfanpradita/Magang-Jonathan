@@ -5,75 +5,65 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Transaction extends Model
 {
     use HasFactory;
 
+    /**
+     * Properti Fillable Mass Assignment untuk 20 Kolom Mutlak Klien
+     * + Utilitas Sistem Pendukung Dashboard Utama
+     */
     protected $fillable = [
         'category_id',
-        'vendor',
         'transaction_number',
         'type',
-        'description',
-        'amount',
         'date',
-        'status',
-        'notes',
         'created_by_id',
         'approved_by_id',
-        'approved_at',
-        'rejected_by_id',
-        'rejected_at',
-        'rejection_reason',
-    ];
-
-    protected $casts = [
-        'date' => 'date',
-        'amount' => 'decimal:2',
-        'approved_at' => 'datetime',
-        'rejected_at' => 'datetime',
-        'attachments' => 'array',
+        
+        // 🚀 STRUKTUR MASALAH ULANG: 20 Kolom Final Excel
+        'code_barang',       // 1. Code Barang
+        'nama_barang',       // 2. Nama Barang
+        'month',             // 3. Month
+        'vendor',            // 4. Vendor
+        'stock',             // 5. Stock
+        'harga',             // 6. Harga
+        'subtotal',          // 7. Subtotal
+        'keterangan',        // 8. Keterangan
+        'nomor_rak',         // 9. Nomor Rak
+        'kategori_excel',    // 10. Kategori
+        'type_excel',        // 11. Type
+        'unit',              // 12. Unit
+        'saldo_awal',        // 13. Saldo Awal
+        'saldo_akhir',       // 14. Saldo Akhir
+        'physical_stock',    // 15. Physical Stock
+        'difference',        // 16. Difference
+        'remark',            // 17. Remark
+        'petugas_opname',    // 18. Petugas Opname
+        'status',            // 19. Status
+        'aksi'               // 20. Aksi
     ];
 
     /**
-     * Relasi ke Kategori
+     * Casting Tipe Data Guna Menghindari Kerusakan Format Desimal (Decimal/Float)
+     */
+    protected $casts = [
+        'date' => 'date',
+        'stock' => 'decimal:2',
+        'harga' => 'decimal:2',
+        'subtotal' => 'decimal:2',
+        'saldo_awal' => 'decimal:2',
+        'saldo_akhir' => 'decimal:2',
+        'physical_stock' => 'decimal:2',
+        'difference' => 'decimal:2',
+    ];
+
+    /**
+     * Relasi ke Tabel Kategori Master (AI Detected Classification)
      */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
-    }
-
-    /**
-     * Relasi ke banyak berkas lampiran (Kwitansi/Invoice)
-     */
-    public function attachments(): HasMany
-    {
-        return $this->hasMany(TransactionAttachment::class);
-    }
-
-    /**
-     * Audit Trail: User yang menginput transaksi
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by_id');
-    }
-
-    /**
-     * Audit Trail: User (Admin/Finance) yang menyetujui transaksi
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by_id');
-    }
-
-    /**
-     * Audit Trail: User yang menolak transaksi
-     */
-    public function rejector(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'rejected_by_id');
     }
 }
